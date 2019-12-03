@@ -15,6 +15,7 @@ from foliant.preprocessors.base import BasePreprocessor
 class Preprocessor(BasePreprocessor):
     defaults = {
         'repo_path': Path('./').resolve(),
+        'position': 'after_content',
         'date_format': 'year_first',
         'foreword': '## File History\n\n',
         'template': '''
@@ -28,6 +29,8 @@ Commit: [{{hash}}]({{url}}), author: {{author}}, date: {{date}}
 ''',
         'afterword': ''
     }
+
+    tags = 'commits',
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -120,7 +123,7 @@ Commit: [{{hash}}]({{url}}), author: {{author}}, date: {{date}}
                 ).replace(
                     '{{hash}}', commit_summary.group('hash')
                 ).replace(
-                    '{{url}}', 'http://' # TODO: get URL
+                    '{{url}}', 'http://' # TODO: get URL taking into account the revision
                 ).replace(
                     '{{author}}', commit_summary.group('author')
                 ).replace(
@@ -136,7 +139,13 @@ Commit: [{{hash}}]({{url}}), author: {{author}}, date: {{date}}
         else:
             self.logger.debug('The command returned nothing')
 
-        return markdown_content + '\n\n' + output_history # TODO: support tags
+        if self.options['position'] == 'after_content':
+            markdown_content += '\n\n' + output_history
+
+        elif self.options['position'] == 'defined_by_tag':
+            markdown_content = self.pattern.sub(output_history, markdown_content)
+
+        return markdown_content
 
     def apply(self):
         self.logger.info('Applying preprocessor')
