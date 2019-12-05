@@ -24,14 +24,15 @@ class Preprocessor(BasePreprocessor):
         'template': '''## File History
 
 {{startcommits}}
-Commit: [{{hash}}]({{url}}), author: {{author}}, date: {{date}}
+Commit: [{{hash}}]({{url}}), author: [{{author}}]({{email}}), date: {{date}}
 
 {{message}}
 
 ```diff
 {{diff}}
 ```
-{{endcommits}}'''
+{{endcommits}}''',
+        'targets': []
     }
 
     tags = 'commits',
@@ -236,11 +237,18 @@ Commit: [{{hash}}]({{url}}), author: {{author}}, date: {{date}}
                     flags=re.MULTILINE
                 )
 
-                commit_author = re.sub(
+                commit_author_match = re.match(
                     r'^(?P<name>.+) \<(?P<email>\S+\@\S+)\>$',
-                    '[\g<name>](mailto:\g<email>)',
                     commit_summary.group('author')
                 )
+
+                if commit_author_match:
+                    commit_author = commit_author_match.group('name')
+                    commit_author_email = commit_author_match.group('email')
+
+                else:
+                    commit_author = commit_summary.group('author')
+                    commit_author_email = ''
 
                 output_history += (
                     commits_template
@@ -252,6 +260,8 @@ Commit: [{{hash}}]({{url}}), author: {{author}}, date: {{date}}
                     f'{self._get_file_path_anchor(repo_web_url, source_file_rel_path)}'
                 ).replace(
                     '{{author}}', commit_author
+                ).replace(
+                    '{{email}}', commit_author_email
                 ).replace(
                     '{{date}}', self._format_date(commit_summary.group('date'))
                 ).replace(
@@ -274,17 +284,23 @@ Commit: [{{hash}}]({{url}}), author: {{author}}, date: {{date}}
     def apply(self):
         self.logger.info('Applying preprocessor')
 
-        for markdown_file_path in self.working_dir.rglob('*.md'):
-            with open(markdown_file_path, encoding='utf8') as markdown_file:
-                markdown_content = markdown_file.read()
+        self.logger.debug(
+            f'Allowed targets: {self.options["targets"]}, ' +
+            f'current target: {self.context["target"]}'
+        )
 
-            processed_markdown_content = self.process_showcommits(
-                markdown_content,
-                markdown_file_path.resolve()
-            )
+        if not self.options['targets'] or self.context['target'] in self.options['targets']:
+            for markdown_file_path in self.working_dir.rglob('*.md'):
+                with open(markdown_file_path, encoding='utf8') as markdown_file:
+                    markdown_content = markdown_file.read()
 
-            if processed_markdown_content:
-                with open(markdown_file_path, 'w', encoding='utf8') as markdown_file:
-                    markdown_file.write(processed_markdown_content)
+                processed_markdown_content = self.process_showcommits(
+                    markdown_content,
+                    markdown_file_path.resolve()
+                )
+
+                if processed_markdown_content:
+                    with open(markdown_file_path, 'w', encoding='utf8') as markdown_file:
+                        markdown_file.write(processed_markdown_content)
 
         self.logger.info('Preprocessor applied')
