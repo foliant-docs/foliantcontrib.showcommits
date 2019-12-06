@@ -40,15 +40,37 @@ Commit: [{{hash}}]({{url}}), author: [{{author}}]({{email}}), date: {{date}}
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        if not '{{startcommits}}' in self.options['template']:
-            self.options['template'] = '{{startcommits}}' + self.options['template']
-
-        if not '{{endcommits}}' in self.options['template']:
-            self.options['template'] += '{{endcommits}}'
-
         self.logger = self.logger.getChild('showcommits')
 
         self.logger.debug(f'Preprocessor inited: {self.__dict__}')
+
+    def _get_template(self) -> str:
+        if isinstance(self.options['template'], Path) or (
+            isinstance(self.options['template'], str)
+            and
+            '\n' not in self.options['template']
+            and
+            '{{' not in self.options['template']
+        ):
+            template_file_path = Path(self.options['template']).resolve()
+
+            self.logger.debug(f'Getting template from the file: {template_file_path}')
+
+            with open(template_file_path, encoding='utf8') as template_file:
+                template = template_file.read()
+
+        else:
+            self.logger.debug('Template specified directly in config')
+
+            template = str(self.options['template'])
+
+        if not '{{startcommits}}' in template:
+            template = '{{startcommits}}' + template
+
+        if not '{{endcommits}}' in template:
+            template += '{{endcommits}}'
+
+        return template
 
     def _get_repo_web_url(self, repo_path: Path) -> str:
         repo_web_url = self.options['protocol'] + '://'
@@ -163,9 +185,14 @@ Commit: [{{hash}}]({{url}}), author: [{{author}}]({{email}}), date: {{date}}
 
         return date
 
-    def process_showcommits(self, markdown_content: str, markdown_file_path: Path) -> str:
-        repo_path = Path(self.options['repo_path']).resolve()
-
+    def process_showcommits(
+        self,
+        markdown_content: str,
+        template: str,
+        markdown_file_path: Path,
+        repo_path: Path,
+        repo_web_url: str
+    ) -> str:
         markdown_file_in_src_dir_path = (
             self.config['src_dir'] / markdown_file_path.relative_to(self.working_dir.resolve())
         ).resolve() 
@@ -190,7 +217,7 @@ Commit: [{{hash}}]({{url}}), author: [{{author}}]({{email}}), date: {{date}}
 
             return markdown_content
 
-        command = f'git log -m --patch --date=iso -- "{source_file_abs_path}"'
+        command = f'git log -m --follow --patch --date=iso -- "{source_file_abs_path}"'
 
         self.logger.debug(f'Running the command to get the file history: {command}')
 
@@ -209,10 +236,8 @@ Commit: [{{hash}}]({{url}}), author: [{{author}}]({{email}}), date: {{date}}
             'utf8', errors='ignore'
         ).replace('\r\n', '\n')
 
-        repo_web_url = self._get_repo_web_url(repo_path)
-
-        foreword, commits_and_afterword = self.options['template'].split('{{startcommits}}', maxsplit=1)
-
+        file_path_anchor = self._get_file_path_anchor(repo_web_url, source_file_rel_path)
+        foreword, commits_and_afterword = template.split('{{startcommits}}', maxsplit=1)
         output_history = foreword
 
         if commits_and_afterword:
@@ -256,8 +281,7 @@ Commit: [{{hash}}]({{url}}), author: [{{author}}]({{email}}), date: {{date}}
                     '{{hash}}', commit_summary.group('hash')
                 ).replace(
                     '{{url}}',
-                    f'{repo_web_url}/commit/{commit_summary.group("hash")}' +
-                    f'{self._get_file_path_anchor(repo_web_url, source_file_rel_path)}'
+                    f'{repo_web_url}/commit/{commit_summary.group("hash")}{file_path_anchor}'
                 ).replace(
                     '{{author}}', commit_author
                 ).replace(
@@ -290,13 +314,20 @@ Commit: [{{hash}}]({{url}}), author: [{{author}}]({{email}}), date: {{date}}
         )
 
         if not self.options['targets'] or self.context['target'] in self.options['targets']:
+            template = self._get_template()
+            repo_path = Path(self.options['repo_path']).resolve()
+            repo_web_url = self._get_repo_web_url(repo_path)
+
             for markdown_file_path in self.working_dir.rglob('*.md'):
                 with open(markdown_file_path, encoding='utf8') as markdown_file:
                     markdown_content = markdown_file.read()
 
                 processed_markdown_content = self.process_showcommits(
                     markdown_content,
-                    markdown_file_path.resolve()
+                    template,
+                    markdown_file_path.resolve(),
+                    repo_path,
+                    repo_web_url
                 )
 
                 if processed_markdown_content:
