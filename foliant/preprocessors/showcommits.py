@@ -119,6 +119,9 @@ Commit: [{{hash}}]({{url}}), author: [{{author}}]({{email}}), date: {{date}}
                     fetch_url
                 )
 
+            else:
+                self.logger.debug('Fetch URL protocol is not supported')
+
         else:
             warning_message = f'WARNING: cannot get fetch URL for the repo: {repo_path}'
 
@@ -131,8 +134,6 @@ Commit: [{{hash}}]({{url}}), author: [{{author}}]({{email}}), date: {{date}}
         return repo_web_url
 
     def _get_file_path_anchor(self, repo_web_url: str, source_file_rel_path: Path) -> str:
-        hosting = self.options['self-hosted']
-
         host_match = re.match(r'^https?:\/\/(?P<host>[^\/]+)\/', repo_web_url)
 
         if host_match:
@@ -147,18 +148,22 @@ Commit: [{{hash}}]({{url}}), author: [{{author}}]({{email}}), date: {{date}}
             elif host == 'bitbucket.org':
                 hosting == 'bitbucket'
 
+            else:
+                hosting = self.options['self-hosted']
+
         self.logger.debug(f'Generating file path anchor for commit URL, style: {hosting}')
 
-        anchor = ''
-
         if hosting == 'gitlab':
-            anchor += f'#{sha1(str(source_file_rel_path).encode()).hexdigest()}'
+            anchor = f'#{sha1(str(source_file_rel_path).encode()).hexdigest()}'
 
         elif hosting == 'github':
-            anchor += f'#diff-{md5(str(source_file_rel_path).encode()).hexdigest()}'
+            anchor = f'#diff-{md5(str(source_file_rel_path).encode()).hexdigest()}'
 
         elif hosting == 'bitbucket':
-            anchor += f'#chg-{source_file_rel_path}'
+            anchor = f'#chg-{source_file_rel_path}'
+
+        else:
+            anchor = ''
 
         self.logger.debug(f'Anchor: {anchor}')
 
@@ -176,12 +181,19 @@ Commit: [{{hash}}]({{url}}), author: [{{author}}]({{email}}), date: {{date}}
                 date
             )
 
+            self.logger.debug(f'Formatting date, year first: {date}')
+
         elif self.options['date_format'] == 'day_first':
             date = re.sub(
                 date_pattern,
                 r'\g<day>.\g<month>.\g<year>',
                 date
             )
+
+            self.logger.debug(f'Formatting date, day first: {date}')
+
+        else:
+            self.logger.debug(f'Preserving default date formatting: {date}')
 
         return date
 
@@ -238,64 +250,61 @@ Commit: [{{hash}}]({{url}}), author: [{{author}}]({{email}}), date: {{date}}
 
         file_path_anchor = self._get_file_path_anchor(repo_web_url, source_file_rel_path)
         foreword, commits_and_afterword = template.split('{{startcommits}}', maxsplit=1)
+        commits_template, afterword = commits_and_afterword.split('{{endcommits}}', maxsplit=1)
         output_history = foreword
 
-        if commits_and_afterword:
-            commits_template, afterword = commits_and_afterword.split('{{endcommits}}', maxsplit=1)
+        for commit_summary in re.finditer(
+            r'commit (?P<hash>[0-9a-f]{8})[0-9a-f]{32}\n' +
+            r'((?!commit [0-9a-f]{40}).*\n|\n)*' +
+            r'Author: (?P<author>.+)\n' +
+            r'Date: +(?P<date>.+)\n\n' +
+            r'(?P<message>((?!commit [0-9a-f]{40}|diff \-\-git .+).*\n|\n)+)' +
+            r'(' +
+            r'diff \-\-git .+\nindex .+\n\-{3} a\/.+\n\+{3} b\/.+\n' +
+            r'(?P<diff>((?!commit [0-9a-f]{40}).+\n)+)' +
+            r')',
+            source_file_git_history_decoded
+        ):
+            commit_message = re.sub(
+                r'^ {4}',
+                '',
+                commit_summary.group('message'),
+                flags=re.MULTILINE
+            )
 
-            for commit_summary in re.finditer(
-                r'commit (?P<hash>[0-9a-f]{8})[0-9a-f]{32}\n' +
-                r'((?!commit [0-9a-f]{40}).*\n|\n)*' +
-                r'Author: (?P<author>.+)\n' +
-                r'Date: +(?P<date>.+)\n\n' +
-                r'(?P<message>((?!commit [0-9a-f]{40}|diff \-\-git .+).*\n|\n)+)' +
-                r'(' +
-                r'diff \-\-git .+\nindex .+\n\-{3} a\/.+\n\+{3} b\/.+\n' +
-                r'(?P<diff>((?!commit [0-9a-f]{40}).+\n)+)' +
-                r')',
-                source_file_git_history_decoded
-            ):
-                commit_message = re.sub(
-                    r'^ {4}',
-                    '',
-                    commit_summary.group('message'),
-                    flags=re.MULTILINE
-                )
+            commit_author_match = re.match(
+                r'^(?P<name>.+) \<(?P<email>\S+\@\S+)\>$',
+                commit_summary.group('author')
+            )
 
-                commit_author_match = re.match(
-                    r'^(?P<name>.+) \<(?P<email>\S+\@\S+)\>$',
-                    commit_summary.group('author')
-                )
+            if commit_author_match:
+                commit_author = commit_author_match.group('name')
+                commit_author_email = commit_author_match.group('email')
 
-                if commit_author_match:
-                    commit_author = commit_author_match.group('name')
-                    commit_author_email = commit_author_match.group('email')
+            else:
+                commit_author = commit_summary.group('author')
+                commit_author_email = ''
 
-                else:
-                    commit_author = commit_summary.group('author')
-                    commit_author_email = ''
+            output_history += (
+                commits_template
+            ).replace(
+                '{{hash}}', commit_summary.group('hash')
+            ).replace(
+                '{{url}}',
+                f'{repo_web_url}/commit/{commit_summary.group("hash")}{file_path_anchor}'
+            ).replace(
+                '{{author}}', commit_author
+            ).replace(
+                '{{email}}', commit_author_email
+            ).replace(
+                '{{date}}', self._format_date(commit_summary.group('date'))
+            ).replace(
+                '{{message}}', commit_message
+            ).replace(
+                '{{diff}}', commit_summary.group('diff')
+            )
 
-                output_history += (
-                    commits_template
-                ).replace(
-                    '{{hash}}', commit_summary.group('hash')
-                ).replace(
-                    '{{url}}',
-                    f'{repo_web_url}/commit/{commit_summary.group("hash")}{file_path_anchor}'
-                ).replace(
-                    '{{author}}', commit_author
-                ).replace(
-                    '{{email}}', commit_author_email
-                ).replace(
-                    '{{date}}', self._format_date(commit_summary.group('date'))
-                ).replace(
-                    '{{message}}', commit_message
-                ).replace(
-                    '{{diff}}', commit_summary.group('diff')
-                )
-
-            if afterword:
-                output_history += afterword
+            output_history += afterword
 
         if self.options['position'] == 'after_content':
             markdown_content += '\n\n' + output_history
