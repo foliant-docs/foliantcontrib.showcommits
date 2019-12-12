@@ -304,7 +304,7 @@ Commit: [{{hash}}]({{url}}), author: [{{author}}]({{email}}), date: {{date}}
                 '{{diff}}', commit_summary.group('diff')
             )
 
-            output_history += afterword
+        output_history += afterword
 
         if self.options['position'] == 'after_content':
             markdown_content += '\n\n' + output_history
