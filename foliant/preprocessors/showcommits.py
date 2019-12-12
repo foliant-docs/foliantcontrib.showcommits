@@ -325,6 +325,9 @@ Commit: [{{hash}}]({{url}}), author: [{{author}}]({{email}}), date: {{date}}
         if not self.options['targets'] or self.context['target'] in self.options['targets']:
             template = self._get_template()
             repo_path = Path(self.options['repo_path']).resolve()
+
+            self.logger.debug(f'Repo path: {repo_path}')
+
             repo_web_url = self._get_repo_web_url(repo_path)
 
             for markdown_file_path in self.working_dir.rglob('*.md'):
