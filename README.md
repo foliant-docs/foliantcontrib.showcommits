@@ -23,11 +23,13 @@ The preprocessor has a number of options with the following default values:
 preprocessors:
     - showcommits:
         repo_path: !rel_path ./    # Path object that points to the current Foliant project’s top-level (“root”) directory when the preprocessor initializes
+        try_default_path: true
         remote_name: origin
         self-hosted: gitlab
         protocol: https
         position: after_content
         date_format: year_first
+        escape_html: true
         template: |
             ## File History
 
@@ -46,6 +48,9 @@ preprocessors:
 `repo_path`
 :   Path to the locally cloned copy of the Git repository that the current Foliant project’s files belong to.
 
+`try_default_path`
+:   Flag that tells the preprocessor to try to use the default `repo_path` if user-specified `repo_path` does not exist.
+
 `remote_name`
 :   Identifier of remote repository; in most cases you don’t need to override the default value.
 
@@ -60,6 +65,9 @@ preprocessors:
 
 `date_format`
 :   Output date format. If the default value `year_first` is used, the date “December 11, 2019” will be represented as `2019-12-11`. If the `day_first` value is used, this date will be represented as `11.12.2019`.
+
+`escape_html`
+:   Flag that tells the preprocessor to replace HTML control characters with corresponding HTML entities in commit messages and diffs: `&` with `&amp;`, `<` with `&lt;`, `>` with `&gt;`, `"` with `&quot;`.
 
 `template`
 :   Template to render the history of commits. If the value is a string that contains one or more newlines (`\n`) or double opening curly braces (`{{`), it is interpreted as a template itself. If the value is a string without newlines and any double opening curly braces, or a `Path` object, it is interpreted as a path to the file that contains a template. Template syntax is described below.

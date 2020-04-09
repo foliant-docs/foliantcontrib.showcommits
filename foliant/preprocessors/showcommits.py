@@ -16,11 +16,13 @@ from foliant.preprocessors.base import BasePreprocessor
 class Preprocessor(BasePreprocessor):
     defaults = {
         'repo_path': Path('./').resolve(),
+        'try_default_path': True,
         'remote_name': 'origin',
         'self-hosted': 'gitlab',
         'protocol': 'https',
         'position': 'after_content',
         'date_format': 'year_first',
+        'escape_html': True,
         'template': '''## File History
 
 {{startcommits}}
@@ -169,6 +171,9 @@ Commit: [{{hash}}]({{url}}), author: [{{author}}]({{email}}), date: {{date}}
 
         return anchor
 
+    def _escape_html(self, content: str) -> str:
+        return content.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;').replace('"', '&quot;')
+
     def _format_date(self, date: str) -> str:
         date_pattern = re.compile(
             r'^(?P<year>\d{4})\-(?P<month>\d{2})\-(?P<day>\d{2}) (?P<time>\S+) (?P<timezone>\S+)$'
@@ -265,13 +270,6 @@ Commit: [{{hash}}]({{url}}), author: [{{author}}]({{email}}), date: {{date}}
             r')',
             source_file_git_history_decoded
         ):
-            commit_message = re.sub(
-                r'^ {4}',
-                '',
-                commit_summary.group('message'),
-                flags=re.MULTILINE
-            )
-
             commit_author_match = re.match(
                 r'^(?P<name>.+) \<(?P<email>\S+\@\S+)\>$',
                 commit_summary.group('author')
@@ -284,6 +282,19 @@ Commit: [{{hash}}]({{url}}), author: [{{author}}]({{email}}), date: {{date}}
             else:
                 commit_author = commit_summary.group('author')
                 commit_author_email = ''
+
+            commit_message = re.sub(
+                r'^ {4}',
+                '',
+                commit_summary.group('message'),
+                flags=re.MULTILINE
+            )
+
+            commit_diff = commit_summary.group('diff')
+
+            if self.options['escape_html']:
+                commit_message = self._escape_html(commit_message)
+                commit_diff = self._escape_html(commit_diff)
 
             output_history += (
                 commits_template
@@ -301,7 +312,7 @@ Commit: [{{hash}}]({{url}}), author: [{{author}}]({{email}}), date: {{date}}
             ).replace(
                 '{{message}}', commit_message
             ).replace(
-                '{{diff}}', commit_summary.group('diff')
+                '{{diff}}', commit_diff
             )
 
         output_history += afterword
@@ -324,9 +335,15 @@ Commit: [{{hash}}]({{url}}), author: [{{author}}]({{email}}), date: {{date}}
 
         if not self.options['targets'] or self.context['target'] in self.options['targets']:
             template = self._get_template()
+
             repo_path = Path(self.options['repo_path']).resolve()
 
-            self.logger.debug(f'Repo path: {repo_path}')
+            self.logger.debug(f'User-specified repo path: {repo_path}')
+
+            if not repo_path.exists() and self.options['try_default_path']:
+                repo_path = self.defaults['repo_path']
+
+                self.logger.debug(f'User-specified path does not exist, trying to use the default one: {repo_path}')
 
             repo_web_url = self._get_repo_web_url(repo_path)
 
