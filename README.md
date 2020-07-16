@@ -1,3 +1,5 @@
+[![](https://img.shields.io/pypi/v/foliantcontrib.showcommits.svg)](https://pypi.org/project/foliantcontrib.showcommits/) [![](https://img.shields.io/github/v/tag/foliant-docs/foliantcontrib.showcommits.svg?label=GitHub)](https://github.com/foliant-docs/foliantcontrib.showcommits)
+
 # ShowCommits Preprocessor
 
 ShowCommits is a preprocessor that appends the history of Git commits corresponding to the current processed file to its content.
@@ -61,7 +63,7 @@ preprocessors:
 :   Web interface URL prefix of a repos management system. Supported values are `https` and `http`.
 
 `position`
-:   String that defines where the history of commits should be placed. Supported values are: `after_content` for concatenating the history with the currently processed Markdown file content, and `defined_by_tag` for replacing the tags `<<commits></commits>` with the history.
+:   String that defines where the history of commits should be placed. Supported values are: `after_content` for concatenating the history with the currently processed Markdown file content, and `defined_by_tag` for replacing the tags `<commits></commits>` with the history.
 
 `date_format`
 :   Output date format. If the default value `year_first` is used, the date “December 11, 2019” will be represented as `2019-12-11`. If the `day_first` value is used, this date will be represented as `11.12.2019`.
