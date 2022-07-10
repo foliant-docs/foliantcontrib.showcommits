@@ -1,0 +1,2 @@
+.
+foliantcontrib.test-framework>=0.1.3
