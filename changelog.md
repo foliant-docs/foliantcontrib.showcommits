@@ -1,3 +1,7 @@
+# 1.0.3
+
+- Add multithread file processing
+
 # 1.0.2
 
 -   Add `try_default_path` and `escape_html` options.
