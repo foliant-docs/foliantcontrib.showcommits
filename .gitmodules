@@ -1,3 +1,0 @@
-[submodule "tests/test_repo"]
-	path = tests/test_repo
-	url = https://gitlab.com/Gadol/test_repo.git
