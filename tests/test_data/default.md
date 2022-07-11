@@ -1,3 +1,3 @@
 # Showcommits testing document
 
-Sone test for example
+Some text for example
