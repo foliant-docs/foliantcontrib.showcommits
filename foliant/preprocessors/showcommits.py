@@ -246,7 +246,6 @@ Commit: [{{hash}}]({{url}}), author: [{{author}}]({{email}}), date: {{date}}
 
         if self.options['escape_html']:
             commit_message = self._escape_html(commit_message)
-            commit_diff = self._escape_html(commit_diff)
 
         commit_info = (
             commits_template
