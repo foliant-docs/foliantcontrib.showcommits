@@ -12,7 +12,6 @@ from subprocess import run, PIPE, STDOUT
 
 from foliant.utils import output
 from foliant.preprocessors.base import BasePreprocessor
-from foliant.preprocessors import escapecode
 
 
 class Preprocessor(BasePreprocessor):
