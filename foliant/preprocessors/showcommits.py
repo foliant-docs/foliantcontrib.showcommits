@@ -246,7 +246,6 @@ Commit: [{{hash}}]({{url}}), author: [{{author}}]({{email}}), date: {{date}}
 
         if self.options['escape_html']:
             commit_message = self._escape_html(commit_message)
-            commit_diff = self._escape_html(commit_diff)
 
         commit_info = (
             commits_template
@@ -305,7 +304,7 @@ Commit: [{{hash}}]({{url}}), author: [{{author}}]({{email}}), date: {{date}}
             self,
             markdown_content: str,
             markdown_file_path: Path,
-    ) -> str:
+        ) -> str:
         markdown_file_in_src_dir_path = (
                 self.config['src_dir'] / markdown_file_path.relative_to(self.working_dir.resolve())
         ).resolve()
@@ -332,6 +331,9 @@ Commit: [{{hash}}]({{url}}), author: [{{author}}]({{email}}), date: {{date}}
 
         source_file_git_history = self.get_source_file_git_history(source_file_abs_path)
         output_history = self.get_output_history(source_file_git_history, source_file_rel_path)
+
+        if self.context['backend'] == 'hugo':
+            output_history = output_history.replace('```diff', '```diff {style=borland}')
 
         if self.options['position'] == 'after_content':
             markdown_content += '\n\n' + output_history
