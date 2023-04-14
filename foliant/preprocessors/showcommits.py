@@ -332,9 +332,6 @@ Commit: [{{hash}}]({{url}}), author: [{{author}}]({{email}}), date: {{date}}
         source_file_git_history = self.get_source_file_git_history(source_file_abs_path)
         output_history = self.get_output_history(source_file_git_history, source_file_rel_path)
 
-        if self.context['backend'] == 'hugo':
-            output_history = output_history.replace('```diff', '```diff {style=borland}')
-
         if self.options['position'] == 'after_content':
             markdown_content += '\n\n' + output_history
 
