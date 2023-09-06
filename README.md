@@ -31,6 +31,7 @@ preprocessors:
         protocol: https
         position: after_content
         date_format: year_first
+        escape_shortcodes: true
         escape_html: true
         template: |
             ## File History
@@ -67,6 +68,9 @@ preprocessors:
 
 `date_format`
 :   Output date format. If the default value `year_first` is used, the date “December 11, 2019” will be represented as `2019-12-11`. If the `day_first` value is used, this date will be represented as `11.12.2019`.
+
+`escape_shortcodes`
+:   Flag that tells the preprocessor to replace shortcodes with escaped shortcodes in diffs, for example: `{{< shortcode >}}` with `{{</* shortcode */>}}`.
 
 `escape_html`
 :   Flag that tells the preprocessor to replace HTML control characters with corresponding HTML entities in commit messages and diffs: `&` with `&amp;`, `<` with `&lt;`, `>` with `&gt;`, `"` with `&quot;`.
