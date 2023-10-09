@@ -24,6 +24,7 @@ class Preprocessor(BasePreprocessor):
         'position': 'after_content',
         'date_format': 'year_first',
         'escape_html': True,
+        'escape_shortcodes': True,
         'template': '''## File History
 
 {{startcommits}}
@@ -244,6 +245,12 @@ Commit: [{{hash}}]({{url}}), author: [{{author}}]({{email}}), date: {{date}}
 
         commit_diff = commit_summary.group('diff')
 
+        if self.options['escape_shortcodes'] or self.context['backend'] == 'hugo':
+            regex = re.compile(r'({{(<|%))\s*((/|)\w+)\s*(.*?|)((%|>)}})')
+            def _sub(m):
+                return f"{m.group(1)}/* {m.group(3)} {m.group(5)}*/{m.group(6)}"
+            commit_diff = regex.sub(_sub, commit_diff)
+
         if self.options['escape_html']:
             commit_message = self._escape_html(commit_message)
 
@@ -331,9 +338,6 @@ Commit: [{{hash}}]({{url}}), author: [{{author}}]({{email}}), date: {{date}}
 
         source_file_git_history = self.get_source_file_git_history(source_file_abs_path)
         output_history = self.get_output_history(source_file_git_history, source_file_rel_path)
-
-        if self.context['backend'] == 'hugo':
-            output_history = output_history.replace('```diff', '```diff {style=borland}')
 
         if self.options['position'] == 'after_content':
             markdown_content += '\n\n' + output_history
