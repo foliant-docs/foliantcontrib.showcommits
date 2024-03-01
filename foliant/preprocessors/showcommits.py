@@ -25,6 +25,7 @@ class Preprocessor(BasePreprocessor):
         'date_format': 'year_first',
         'escape_html': True,
         'escape_shortcodes': True,
+        'enable_diff': True,
         'template': '''## File History
 
 {{startcommits}}
@@ -208,7 +209,10 @@ Commit: [{{hash}}]({{url}}), author: [{{author}}]({{email}}), date: {{date}}
         return date
 
     def get_source_file_git_history(self, source_file_abs_path):
-        command = f'git log -m --follow --patch --date=iso -- "{source_file_abs_path}"'
+        if self.options['enable_diff']:
+            command = f'git log -m --follow --patch --date=iso -- "{source_file_abs_path}"'
+        else:
+            command = f'git log -m --follow --date=iso -- "{source_file_abs_path}"'
         self.logger.debug(f'Running the command to get the file history: {command}')
 
         source_file_git_history = run(
@@ -243,13 +247,14 @@ Commit: [{{hash}}]({{url}}), author: [{{author}}]({{email}}), date: {{date}}
             flags=re.MULTILINE
         )
 
-        commit_diff = commit_summary.group('diff')
+        if self.options['enable_diff']:
+            commit_diff = commit_summary.group('diff')
 
-        if self.options['escape_shortcodes'] or self.context['backend'] == 'hugo':
-            regex = re.compile(r'({{(<|%))\s*((/|)\w+)\s*(.*?|)((%|>)}})')
-            def _sub(m):
-                return f"{m.group(1)}/* {m.group(3)} {m.group(5)}*/{m.group(6)}"
-            commit_diff = regex.sub(_sub, commit_diff)
+            if self.options['escape_shortcodes'] or self.context['backend'] == 'hugo':
+                regex = re.compile(r'({{(<|%))\s*((/|)\w+)\s*(.*?|)((%|>)}})')
+                def _sub(m):
+                    return f"{m.group(1)}/* {m.group(3)} {m.group(5)}*/{m.group(6)}"
+                commit_diff = regex.sub(_sub, commit_diff)
 
         if self.options['escape_html']:
             commit_message = self._escape_html(commit_message)
@@ -269,9 +274,12 @@ Commit: [{{hash}}]({{url}}), author: [{{author}}]({{email}}), date: {{date}}
             '{{date}}', self._format_date(commit_summary.group('date'))
         ).replace(
             '{{message}}', commit_message
-        ).replace(
-            '{{diff}}', commit_diff
         )
+
+        if self.options['enable_diff']:
+            commit_info = commit_info.replace(
+                '{{diff}}', commit_diff
+            )
 
         return commit_info
 
@@ -287,18 +295,28 @@ Commit: [{{hash}}]({{url}}), author: [{{author}}]({{email}}), date: {{date}}
         commits_template, afterword = commits_and_afterword.split('{{endcommits}}', maxsplit=1)
         output_history = foreword
 
-        all_commits_summary = re.finditer(
-                r'commit (?P<hash>[\da-f]{8})[\da-f]{32}\n' +
-                r'((?!commit [\da-f]{40}).*\n|\n)*' +
-                r'Author: (?P<author>.+)\n' +
-                r'Date: +(?P<date>.+)\n\n' +
-                r'(?P<message>((?!commit [\da-f]{40}|diff --git .+).*\n|\n)+)' +
-                r'(' +
-                r'diff --git .+\nindex .+\n-{3} a/.+\n\+{3} b/.+\n' +
-                r'(?P<diff>((?!commit [\da-f]{40}).+\n)+)' +
-                r')',
-                source_file_git_history_decoded
-        )
+        if self.options['enable_diff']:
+            all_commits_summary = re.finditer(
+                    r'commit (?P<hash>[\da-f]{8})[\da-f]{32}\n' +
+                    r'((?!commit [\da-f]{40}).*\n|\n)*' +
+                    r'Author: (?P<author>.+)\n' +
+                    r'Date: +(?P<date>.+)\n\n' +
+                    r'(?P<message>((?!commit [\da-f]{40}|diff --git .+).*\n|\n)+)' +
+                    r'(' +
+                    r'diff --git .+\nindex .+\n-{3} a/.+\n\+{3} b/.+\n' +
+                    r'(?P<diff>((?!commit [\da-f]{40}).+\n)+)' +
+                    r')',
+                    source_file_git_history_decoded
+            )
+        else:
+            all_commits_summary = re.finditer(
+                    r'commit (?P<hash>[\da-f]{8})[\da-f]{32}\n' +
+                    r'((?!commit [\da-f]{40}).*\n|\n)*' +
+                    r'Author: (?P<author>.+)\n' +
+                    r'Date: +(?P<date>.+)\n\n' +
+                    r'(?P<message>((?!commit [\da-f]{40}|diff --git .+).*\n|\n)+)',
+                    source_file_git_history_decoded
+            )
 
         for commit_summary in all_commits_summary:
             output_history += self.get_commit_info(commit_summary, commits_template, file_path_anchor)
