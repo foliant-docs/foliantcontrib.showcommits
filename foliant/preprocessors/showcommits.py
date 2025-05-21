@@ -367,10 +367,12 @@ Commit: [{{hash}}]({{url}}), author: [{{author}}]({{email}}), date: {{date}}
                 markdown_file_path = Path(markdown_file_path)
             if project_path:
                 markdown_file_path = Path(self.working_dir / markdown_file_path.relative_to(Path(project_path / self.config['src_dir'])))
-            process_file_thread = threading.Thread(target=self.process_file,
-                                                   args=[markdown_file_path])
-            process_file_thread.start()
-            threads.append(process_file_thread)
+
+            if markdown_file_path.suffix.lower() == ".md":
+                process_file_thread = threading.Thread(target=self.process_file,
+                                                    args=[markdown_file_path])
+                process_file_thread.start()
+                threads.append(process_file_thread)
         for thread in threads:
             thread.join()
 
