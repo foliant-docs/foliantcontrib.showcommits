@@ -1,3 +1,7 @@
+# 1.0.6
+
+- add: support for the `only_partial`.
+
 # 1.0.5
 
 - add: option `escape_shortcodes`.
