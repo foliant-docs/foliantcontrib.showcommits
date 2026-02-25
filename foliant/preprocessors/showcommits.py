@@ -360,15 +360,16 @@ Commit: [{{hash}}]({{url}}), author: [{{author}}]({{email}}), date: {{date}}
             with open(markdown_file_path, 'w', encoding='utf8') as markdown_file:
                 markdown_file.write(processed_markdown_content)
 
-    def process_all_files(self):
+    def process_all_files(self, list_of_files: list, project_path: str):
         threads = []
-        for markdown_file_path in self.working_dir.rglob('*.md'):
-            process_file_thread = threading.Thread(target=self.process_file,
-                                                   args=[markdown_file_path])
-            process_file_thread.start()
-            threads.append(process_file_thread)
-        for thread in threads:
-            thread.join()
+        for markdown_file_path in list_of_files:
+            if isinstance(markdown_file_path, str):
+                markdown_file_path = Path(markdown_file_path)
+            if project_path:
+                markdown_file_path = Path(self.working_dir / markdown_file_path.relative_to(Path(project_path / self.config['src_dir'])))
+
+            if markdown_file_path.suffix.lower() == ".md" and Path(markdown_file_path).exists():
+                self.process_file(markdown_file_path)
 
     def apply(self):
         self.logger.info('Applying preprocessor')
@@ -392,6 +393,9 @@ Commit: [{{hash}}]({{url}}), author: [{{author}}]({{email}}), date: {{date}}
                     f'User-specified path does not exist, trying to use the default one: {self.repo_path}')
 
             self.repo_web_url = self._get_repo_web_url()
-            self.process_all_files()
+            if self.context['only_partial']:
+                self.process_all_files(self.context['only_partial'], self.project_path)
+            else:
+                self.process_all_files(self.working_dir.rglob('*.md'), "")
 
         self.logger.info('Preprocessor applied')
