@@ -115,3 +115,4 @@ The following placeholders affect only between the `{{startcommits}}` and `{{end
 
 `{{diff}}`
 :   Diff between the currently processed Markdown file at a certain commit and the same file at the previous state.
+
